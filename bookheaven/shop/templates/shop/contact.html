@@ -1,0 +1,72 @@
+{% extends 'shop/basic.html' %}
+
+{% block title%} Contact Us{% endblock %}
+{% block body %}
+<div class="container my-3">
+    <h3>Contact Us</h3>
+    <div id="alertMessage" style="display: none;" class="alert alert-success">
+        Our team will contact you soon!
+    </div>
+    <form id="contactForm" method="post">{% csrf_token %}
+        <div class="form-group">
+            <label for="name">Name</label>
+            <input type="text" class="form-control" id="name" name='name' placeholder="Enter Your Name" required>
+        </div>
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" class="form-control" id="email" name='email' placeholder="Enter Your Email" required>
+        </div>
+        <div class="form-group">
+            <label for="phone">Phone</label>
+            <input type="tel" class="form-control" id="phone" name='phone' placeholder="Enter Your Phone Number" required>
+        </div>
+        <div class="form-group">
+            <label for="desc">How May We Help You?</label>
+            <textarea class="form-control" id="desc" name='desc' rows="3" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-success">Submit</button>
+    </form>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('contactForm');
+    const alertMessage = document.getElementById('alertMessage');
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        try {
+            const response = await fetch('/shop/contact/', {
+                method: 'POST',
+                body: new FormData(this),
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            });
+
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                // Show success message
+                alertMessage.style.display = 'block';
+                // Clear the form
+                form.reset();
+                // Scroll to top to show the message
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                
+                // Hide the message after 5 seconds
+                setTimeout(() => {
+                    alertMessage.style.display = 'none';
+                }, 5000);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Something went wrong. Please try again.');
+        }
+    });
+});
+</script>
+{% endblock %}

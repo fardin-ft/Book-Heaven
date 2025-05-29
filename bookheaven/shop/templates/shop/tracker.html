@@ -1,0 +1,234 @@
+{% extends 'shop/basic.html' %}
+{% block title%}Track Your Order{% endblock %}
+{% block body %}
+<div class="container">
+    <div class="col my-4">
+        <h2>Enter your Order Id and Email address to track your order</h2>
+        <form method="post" id="trackerForm">{% csrf_token %}
+            <div class="form-row">
+                <div class="form-group col-md-6">
+                    <label for="inputname">Order Id</label>
+                    <input type="text" class="form-control" id="orderId" name="orderId" placeholder="Order Id">
+                </div>
+                <div class="form-group col-md-6">
+                    <label for="inputEmail4">Email</label>
+                    <input type="email" class="form-control" id="email" name="email" placeholder="Email">
+                </div>
+                <button type="submit" class="btn btn-primary">Track Order</button>
+            </div>
+        </form>
+    </div>
+    <div class="col my-4">
+        <div id="orderDetails" style="display: none;">
+            <h2>Order Details</h2>
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Shipping Information</h5>
+                    <p class="card-text" id="shippingInfo"></p>
+                </div>
+            </div>
+            
+            <h3>Order Items</h3>
+            <div class="table-responsive mb-4">            <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Item Name</th>
+                            <th>Quantity</th>
+                            <th>Price</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orderItems">
+                    </tbody>
+                    <tfoot id="orderTotal">
+                    </tfoot>
+                </table>
+            </div>
+
+            <h3>Order Updates</h3>
+            <ul class="list-group" id="items">
+            </ul>
+        </div>
+        <div id="noOrderMessage">
+            Enter your order Id and Email and click Track Order to find details about your order!
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let cart = JSON.parse(localStorage.getItem('cart')) || {};
+    
+    // Update cart display
+    if (document.getElementById('cart') != null) {
+        document.getElementById('cart').innerHTML = Object.keys(cart).length;
+    }
+
+    // Handle form submission
+    const trackerForm = document.getElementById('trackerForm');
+    const items = document.getElementById('items');
+    const orderDetails = document.getElementById('orderDetails');
+    const noOrderMessage = document.getElementById('noOrderMessage');
+    const orderItems = document.getElementById('orderItems');
+    const orderTotal = document.getElementById('orderTotal');
+    const shippingInfo = document.getElementById('shippingInfo');
+
+    if (trackerForm) {
+        trackerForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            items.innerHTML = '';
+            orderItems.innerHTML = '';
+            orderTotal.innerHTML = '';
+
+            try {
+                const response = await fetch('/shop/tracker/', {
+                    method: 'POST',
+                    body: new FormData(this),
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    orderDetails.style.display = 'block';
+                    noOrderMessage.style.display = 'none';
+
+                    // Display shipping information
+                    const order = data.order;
+                    shippingInfo.innerHTML = `
+                        <strong>Name:</strong> ${order.name}<br>
+                        <strong>Address:</strong> ${order.address}<br>
+                        <strong>City:</strong> ${order.city}<br>
+                        <strong>State:</strong> ${order.state}<br>
+                        <strong>ZIP Code:</strong> ${order.zip_code}
+                    `;
+
+                    // Display order items
+                    let total = 0;
+                    Object.entries(data.items).forEach(([id, item]) => {
+                        const itemTotal = item.qty * item.price;
+                        total += itemTotal;
+                        orderItems.innerHTML += `
+                            <tr>
+                                <td>${item.name}</td>
+                                <td class="text-center">${item.qty}</td>
+                                <td class="text-end">TK.${item.price.toFixed(2)}</td>
+                                <td class="text-end">TK.${itemTotal.toFixed(2)}</td>
+                            </tr>
+                        `;
+                    });
+
+                    // Add total row
+                    orderTotal.innerHTML = `
+                        <tr>
+                            <td colspan="3" class="text-end"><strong>Total Amount:</strong></td>
+                            <td class="text-end"><strong>TK.${total.toFixed(2)}</strong></td>
+                        </tr>
+                    `;
+
+                    // Display order updates with newer Bootstrap classes
+                    if (data.updates && data.updates.length > 0) {
+                        data.updates.forEach(({text, time}) => {
+                            items.innerHTML += `
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    ${text}
+                                    <span class="badge bg-primary text-white rounded-pill">${time}</span>
+                                </li>`;
+                        });
+                    } else {
+                        items.innerHTML = '<li class="list-group-item text-center">No updates yet</li>';
+                    }
+                } else {
+                    orderDetails.style.display = 'none';
+                    noOrderMessage.style.display = 'block';
+                    noOrderMessage.innerHTML = `<div class="alert alert-warning">${data.message || 'No order found with these details. Please check and try again.'}</div>`;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                orderDetails.style.display = 'none';
+                noOrderMessage.style.display = 'block';
+                noOrderMessage.innerHTML = '<div class="alert alert-danger">Failed to fetch order details. Please try again.</div>';
+            }
+        });
+    }
+
+    // Cart popup functionality
+    if (document.getElementById('popcart') != null) {
+        document.getElementById('popcart').addEventListener('click', function() {
+            const cartDisplay = document.getElementById('cart');
+            const popCart = document.getElementById('popcart');
+            
+            // Create cart popup if it doesn't exist
+            let popover = document.querySelector('.cart-popover');
+            if (!popover) {
+                popover = document.createElement('div');
+                popover.className = 'popover fade show bs-popover-bottom cart-popover';
+                popover.style.cssText = 'position: absolute; display: none; z-index: 1050; background-color: white; min-width: 300px; max-width: 330px; border: 1px solid rgba(0,0,0,.1); border-radius: .5rem; padding: 1rem; box-shadow: 0 0.5rem 1.5rem rgba(0,0,0,.15)';
+                document.body.appendChild(popover);
+            }
+
+            // Toggle popover display
+            const isVisible = popover.style.display === 'block';
+            if (!isVisible) {
+                const rect = popCart.getBoundingClientRect();
+                popover.style.top = (rect.bottom + window.scrollY + 5) + 'px';
+                popover.style.left = rect.left + window.scrollX + 'px';
+                popover.style.display = 'block';
+
+                // Update cart content
+                let cartContent = '<h5 class="border-bottom pb-2 mb-2">Cart for your items</h5>';
+                if (Object.keys(cart).length === 0) {
+                    cartContent += '<p class="text-center text-muted my-2">Your cart is empty</p>';
+                } else {
+                    Object.entries(cart).forEach(([itemId, item], index) => {
+                        cartContent += `
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span><b>${index + 1}</b>. ${item.name.slice(0, 19)}${item.name.length > 19 ? '...' : ''}</span>
+                                <span class="badge bg-primary">Qty: ${item.qty}</span>
+                            </div>`;
+                    });
+                }
+                cartContent += `
+                    <div class="d-flex justify-content-between gap-2 mt-3 border-top pt-3">
+                        <a href="/shop/checkout" class="flex-grow-1">
+                            <button class="btn btn-primary w-100" id="checkout" ${Object.keys(cart).length === 0 ? 'disabled' : ''}>
+                                <i class="fas fa-shopping-bag me-2"></i>Checkout
+                            </button>
+                        </a>
+                        <button class="btn btn-outline-danger" onclick="clearCart()" id="clearCart" ${Object.keys(cart).length === 0 ? 'disabled' : ''}>
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>`;
+                popover.innerHTML = cartContent;
+            } else {
+                popover.style.display = 'none';
+            }
+        });
+
+        // Close popover when clicking outside
+        document.addEventListener('click', function(e) {
+            const popover = document.querySelector('.cart-popover');
+            const popcart = document.getElementById('popcart');
+            if (popover && !popcart.contains(e.target) && !popover.contains(e.target)) {
+                popover.style.display = 'none';
+            }
+        });
+    }
+});
+
+// Clear Cart function
+function clearCart() {
+    localStorage.removeItem('cart');
+    cart = {};
+    document.getElementById('cart').innerHTML = '0';
+    const popover = document.querySelector('.cart-popover');
+    if (popover) {
+        popover.style.display = 'none';
+    }
+    updateCartDisplay();
+}
+</script>
+{% endblock %}

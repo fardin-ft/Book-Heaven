@@ -1,0 +1,116 @@
+{% extends 'shop/basic.html' %}
+
+{% block title%} {{product.product_name}} - My Awesome Cart{% endblock %}
+{% block body %}
+<div class="container my-4">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="row justify-content-center">
+                <img src="/media/{{product.image}}" width="233px" height="385px">
+            </div>
+            <div class="row my-3">
+                <div class="col-12">
+                    <div id="divpr{{product.product_id}}" class="divpr d-flex justify-content-center align-items-center">
+                        <button id="pr{{product.product_id}}" class="btn btn-primary cart " data-price="{{product.product_price}}">Add To Cart</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <h5 id="namepr{{product.product_id}}" class="mb-3">{{product.product_name}}</h5>
+            <h4 class="text-primary mb-3"><b>TK.{{product.product_price}}</b></h4>
+            <p class="lead">{{product.product_desc}}</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+$(function() {
+    let cart = JSON.parse(localStorage.getItem('cart')) || {};
+
+    // Initialize cart display and popover
+    updateCartDisplay();
+    $('#popcart').popover();
+    updatePopoverContent();
+
+    // Centralized event listener for all cart actions within .divpr
+    $('.divpr').on('click', 'button.cart, button.minus, button.plus', function() {
+        const btn = $(this);
+        const idstr = btn.hasClass('cart') ? this.id : this.id.slice(btn.hasClass('minus') ? 5 : 4); // 'pr3' or 'minuspr3' or 'pluspr3'
+        const item = cart[idstr];
+
+        if (btn.hasClass('cart')) {
+            const name = $('#name' + idstr).text() || "Unknown Item";
+            const price = parseFloat(btn.data('price')) || 0;
+            cart[idstr] = item ? { ...item, qty: item.qty + 1 } : { qty: 1, name: name, price: price };
+        } else if (btn.hasClass('minus')) {
+            if (item && item.qty > 0) item.qty--;
+        } else if (btn.hasClass('plus')) {
+            if (item) item.qty++;
+        }
+
+        updateCartDisplay();
+    });
+
+    // Clear Cart function
+    window.clearCart = function() {
+        for (const itemId in cart) {
+            const divEl = $('#div' + itemId);
+            if (divEl.length) {
+                divEl.html(`<button id="${itemId}" class="btn btn-primary cart">Add To Cart</button>`);
+            }
+        }
+        localStorage.clear();
+        cart = {};
+        updateCartDisplay();
+    };
+
+    function updateCartDisplay() {
+        let totalItems = 0;
+        for (const itemId in cart) {
+            if (cart[itemId].qty <= 0) {
+                delete cart[itemId]; // Remove item if quantity is zero or less
+                const divEl = $('#div' + itemId);
+                if (divEl.length) {
+                    divEl.html(`<button id="${itemId}" class="btn btn-primary cart">Add To Cart</button>`);
+                }
+            } else {
+                totalItems += cart[itemId].qty;
+                const divEl = $('#div' + itemId);
+                if (divEl.length) {
+                    divEl.html(`
+                        <button id="minus${itemId}" class="btn btn-primary minus mx-2">-</button>
+                        <span id="val${itemId}">${cart[itemId].qty}</span>
+                        <button id="plus${itemId}" class="btn btn-primary plus mx-2">+</button>
+                    `);
+                }
+            }
+        }
+
+        localStorage.setItem('cart', JSON.stringify(cart));
+        $('#cart').text(totalItems);
+        updatePopoverContent();
+    }
+
+    function updatePopoverContent() {
+        let popStr = "<h5>Cart for your items</h5><div class='mx-2 my-2'>";
+        let itemIndex = 1;
+        for (const itemId in cart) {
+            const item = cart[itemId];
+            const itemName = item.name.slice(0, 19) + (item.name.length > 19 ? '...' : '');
+            popStr += `<b>${itemIndex++}</b>. ${itemName} Qty: ${item.qty}<br>`;
+        }
+        popStr += `
+            </div>
+            <a href='/shop/checkout'><button class='btn btn-primary' id='checkout'>Checkout</button></a>
+            <button class='btn btn-primary' onclick='clearCart()' id='clearCart'>Clear Cart</button>
+        `;
+        $('#popcart').attr('data-content', popStr);
+        $('#popcart').popover('show'); // Ensure popover is visible if already shown
+    }
+});
+</script>
+{% endblock %}

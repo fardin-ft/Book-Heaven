@@ -1,0 +1,124 @@
+{% extends 'shop/basic.html' %}
+{% block title%} Checkout {% endblock %}
+{% block body %}
+<div class="container">
+    <div class="col my-4">
+        <h2>Step 1 - Review Your Cart Items</h2>
+        <div>
+            <ul class="list-group" id="items">
+            </ul>
+            <div class="list-group-item d-flex justify-content-between align-items-center mt-3 bg-light">
+                <strong>Total Amount:</strong>
+                <span class="font-weight-bold text-primary" id="totalAmount">TK 0</span>
+            </div>
+        </div>
+    </div>
+    <div class="col my-4">
+        <h2>Step 2 - Shipping Address:</h2>
+        <div id="emptyCartMessage" class="alert alert-warning d-none">
+            <strong>Your cart is empty!</strong> Please add items to your cart before checking out.
+        </div>
+        <form method="post" action="/shop/checkout/">{% csrf_token %}
+            <input type="hidden" name="itemJson" id="itemJson" name="itemJson">
+            <div class="form-row">
+                <div class="form-group col-md-6">
+                    <label for="inputname">Name*</label>
+                    <input type="text" class="form-control" id="name" name="name" placeholder="Name" required>
+                </div>
+                <div class="form-group col-md-6">
+                    <label for="inputEmail4">Email*</label>
+                    <input type="email" class="form-control" id="email" name="email" placeholder="Email" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="address">Address*</label>
+                <input type="text" class="form-control" id="address" name="address" placeholder="1234 Main St" required>
+            </div>
+            <div class="form-group">
+                <label for="address2">Address line 2</label>
+                <input type="text" class="form-control" id="address2" name="address2" placeholder="Apartment, studio, or floor">
+            </div>
+            <div class="form-row">
+                <div class="form-group col-md-6">
+                    <label for="city">City*</label>
+                    <input type="text" class="form-control" id="city" name="city" required>
+                </div>
+                <div class="form-group col-md-4">
+                    <label for="state">State*</label>
+                    <input type="text" class="form-control" id="state" name="state" placeholder="Enter State" required>
+                </div>
+                <div class="form-group col-md-2">
+                    <label for="zip_code">Zip*</label>
+                    <input type="text" class="form-control" id="zip_code" name="zip_code" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="phone">Phone Number*</label>
+                <input type="tel" class="form-control" id="phone" name="phone" placeholder="+880" required>
+            </div>
+            <button type="submit" class="btn btn-primary" id="placeOrderBtn">Place Order</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+function updateCart() {
+    let cart = JSON.parse(localStorage.getItem('cart')) || {};
+    let sum = 0;
+    if ($.isEmptyObject(cart)) {
+        // Show empty cart message and disable form
+        document.getElementById('emptyCartMessage').classList.remove('d-none');
+        const form = document.querySelector('form');
+        Array.from(form.elements).forEach(element => {
+            element.disabled = true;
+        });
+        document.getElementById('items').innerHTML = '<li class="list-group-item">Your cart is empty</li>';
+        document.getElementById('totalAmount').innerText = 'TK 0';
+    } else {
+        document.getElementById('emptyCartMessage').classList.add('d-none');
+        const form = document.querySelector('form');
+        Array.from(form.elements).forEach(element => {
+            element.disabled = false;
+        });
+          // Update cart display
+        let itemsList = '';
+        for (let [itemId, item] of Object.entries(cart)) {
+            sum += item.price * item.qty;
+            itemsList += `
+                <li class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="my-0">${item.name}</h6>
+                            <small class="text-muted">Quantity: ${item.qty}</small>
+                        </div>
+                        <span>TK ${item.price * item.qty}</span>
+                    </div>
+                </li>`;
+        }
+        document.getElementById('items').innerHTML = itemsList;
+        document.getElementById('totalAmount').innerText = `TK ${sum}`;
+        document.getElementById('itemJson').value = JSON.stringify(cart);
+    }
+}
+
+// Form validation
+document.querySelector('form').addEventListener('submit', function(e) {
+    const cart = JSON.parse(localStorage.getItem('cart')) || {};
+    if ($.isEmptyObject(cart)) {
+        e.preventDefault();
+        alert('Please add items to your cart before placing an order.');
+        return false;
+    }
+    
+    // Additional validation can be added here
+    return true;
+});
+
+// Update cart on page load
+$(document).ready(function() {
+    updateCart();
+});
+</script>
+{% endblock %}

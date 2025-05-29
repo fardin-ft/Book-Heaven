@@ -1,0 +1,1 @@
+console.log("Shop script loaded");
